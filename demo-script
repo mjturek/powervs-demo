@@ -21,8 +21,8 @@ function title_card {
         local title=" [STEP $STEP] $1 "
         local description="$2"
 
-        printf "=======================%s======================\n" "$title"
-        printf "$description\n"
+        printf "=======================%s======================\n\n" "$title"
+        printf "$description\n\n"
         printf "============================================="
  	printf '=%.0s' `eval echo {1..${#title}}`
 	printf '\n'
@@ -46,7 +46,7 @@ function show_file {
 }
 
 # Create IBM Cloud resources
-title_card "Create IBM Cloud resources" "A precreated DNS domain in IBM Cloud CIS, and a pre created Power VS Service instance arerequired\nTake note of the DNS domain name and service instance's ID."
+title_card "Create IBM Cloud resources" "A precreated DNS domain in IBM Cloud CIS, and a pre created Power VS Service\ninstance are required. Take note of the DNS domain name and service instance's ID."
 
 # Prepare environment
 title_card "Prepare environment" "In this demo, we will be using several environment variables\nThey will be used to create an install config and cloud credentials"
@@ -98,8 +98,7 @@ platform:
     serviceInstanceID: "${SERVICE_INSTANCE_ID}"
 publish: External
 pullSecret: '${PULL_SECRET}'
-sshKey: |
-  ${SSH_KEY}
+sshKey: '${SSH_PUBLIC_KEY}'
 EOL
 
 # Create manifests
@@ -107,7 +106,7 @@ title_card "Create manifests" "Manifests can be generated with the following com
 openshift-install create manifests --dir ${CLUSTER_DIR} --log-level=debug
 
 # Fetch cloud credentials
-title_card "Fetch cloud credentials" "Cloud credentials are manifests for secrets used by various operators in\nthe installer process. These can be extracted using ccoctl:\n\n/`ccoctl ibmcloud create-service-id --credentials-requests-dir <path-to-directory-with-list-of-credentials-requests> --name <name> --resource-group-name <resource-group-name>/`\n\nAfter fetching them, place them in your manifests directory."
+title_card "Fetch cloud credentials" "Cloud credentials are manifests for secrets used by various operators in\nthe installer process. These can be extracted using ccoctl:\n\n\`ccoctl ibmcloud create-service-id \\ \n--credentials-requests-dir <path-to-directory-with-list-of-credentials-requests> \\ \n--name <name> --resource-group-name <resource-group-name>\`\n\nAfter fetching them, place them in your manifests directory. Here is an example of what they look like."
 
 show_file examples/cloud-credentials.yaml
 
@@ -157,5 +156,5 @@ type: Opaque
 EOL
 
 # Create cluster
-title_card "Create cluster" "With everything in place, run the following:\n\nopenshift-install create cluster --dir \${CLUSTER_DIR}\n\nThis will begin deployment."
+title_card "Create cluster" "With everything in place, run the following:\n\n\`openshift-install create cluster --dir \${CLUSTER_DIR}\`\n\nThis will begin deployment."
 TF_LOG=debug openshift-install create cluster --dir ${CLUSTER_DIR} --log-level=debug
