@@ -1,0 +1,38 @@
+apiVersion: v1
+baseDomain: scnl-ibm.com
+compute:
+- architecture: ppc64le
+  hyperthreading: Enabled
+  name: worker
+  platform: {}
+  replicas: 3
+controlPlane:
+  architecture: ppc64le
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: "${CLUSTER_NAME}"
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 192.168.0.0/16
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  powervs:
+    userid: "${IBMID}"
+    powervsResourceGroup: "${IBMCLOUD_RESOURCE_GROUP}"
+    region: "${POWERVS_REGION}"
+    vpcRegion: "${VPCREGION}"
+    zone: "${POWERVS_ZONE}"
+    serviceInstanceID: "${SERVICE_INSTANCE_ID}"
+publish: External
+pullSecret: '${PULL_SECRET}'
+sshKey: |
+  ${SSH_KEY}

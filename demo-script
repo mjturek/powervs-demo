@@ -1,0 +1,161 @@
+#! /bin/bash
+
+source ./install.conf
+
+STEP=1
+SLEEP_TIME=12
+
+function wait_for_input_or_sleep {
+	if [ ${AUTO} ]; then
+		sleep $SLEEP_TIME
+	else
+		printf "Press any key to continue"
+		read -n 1
+	fi
+}
+
+function title_card {
+        set +x
+        clear
+
+        local title=" [STEP $STEP] $1 "
+        local description="$2"
+
+        printf "=======================%s======================\n" "$title"
+        printf "$description\n"
+        printf "============================================="
+ 	printf '=%.0s' `eval echo {1..${#title}}`
+	printf '\n'
+        wait_for_input_or_sleep
+
+	STEP=$((++STEP))
+
+        clear
+        set -x
+}
+
+function show_file {
+	set +x
+	clear
+
+	cat $1
+	wait_for_input_or_sleep
+
+	clear
+	set -x
+}
+
+# Create IBM Cloud resources
+title_card "Create IBM Cloud resources" "A precreated DNS domain in IBM Cloud CIS, and a pre created Power VS Service instance arerequired\nTake note of the DNS domain name and service instance's ID."
+
+# Prepare environment
+title_card "Prepare environment" "In this demo, we will be using several environment variables\nThey will be used to create an install config and cloud credentials"
+
+show_file examples/install.conf
+
+# Create install config
+title_card "Create install config" "Provide an install-config, or generate one with:\n\n\`openshift create install-config\`\n\nIn this demo we will use a pre-generated one. Place the install config\nin a directory you can reference later, referred to hereafter as CLUSTER_DIR."
+
+show_file examples/install-config.yaml
+
+rm -rf ${CLUSTER_DIR}
+mkdir ${CLUSTER_DIR}
+
+cat <<EOL > ${CLUSTER_DIR}/install-config.yaml
+apiVersion: v1
+baseDomain: scnl-ibm.com
+compute:
+- architecture: ppc64le
+  hyperthreading: Enabled
+  name: worker
+  platform: {}
+  replicas: 3
+controlPlane:
+  architecture: ppc64le
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: "${CLUSTER_NAME}"
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 192.168.0.0/16
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  powervs:
+    userid: "${IBMID}"
+    powervsResourceGroup: "${IBMCLOUD_RESOURCE_GROUP}"
+    region: "${POWERVS_REGION}"
+    vpcRegion: "${VPCREGION}"
+    zone: "${POWERVS_ZONE}"
+    serviceInstanceID: "${SERVICE_INSTANCE_ID}"
+publish: External
+pullSecret: '${PULL_SECRET}'
+sshKey: |
+  ${SSH_KEY}
+EOL
+
+# Create manifests
+title_card "Create manifests" "Manifests can be generated with the following command:\n\n\`openshift-install create manifests --dir \${CLUSTER_DIR}\`\n\nCLUSTER_DIR should be the same location as your install-config"
+openshift-install create manifests --dir ${CLUSTER_DIR} --log-level=debug
+
+# Fetch cloud credentials
+title_card "Fetch cloud credentials" "Cloud credentials are manifests for secrets used by various operators in\nthe installer process. These can be extracted using ccoctl:\n\n/`ccoctl ibmcloud create-service-id --credentials-requests-dir <path-to-directory-with-list-of-credentials-requests> --name <name> --resource-group-name <resource-group-name>/`\n\nAfter fetching them, place them in your manifests directory."
+
+show_file examples/cloud-credentials.yaml
+
+cat <<EOL > ${CLUSTER_DIR}/manifests/openshift-machine-api-powervs-credentials-credentials.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+ creationTimestamp: null
+ name: powervs-credentials
+ namespace: openshift-machine-api
+stringData:
+ ibm-credentials.env: |-
+  IBMCLOUD_AUTHTYPE=iam
+  IBMCLOUD_APIKEY=${POWERVS_API_KEY}
+ ibmcloud_api_key: ${POWERVS_API_KEY}
+type: Opaque
+EOL
+
+cat <<EOL > ${CLUSTER_DIR}/manifests/openshift-cloud-controller-manager-ibm-cloud-credentials-credentials.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: ibm-cloud-credentials
+  namespace: openshift-cloud-controller-manager
+stringData:
+  ibm-credentials.env: |-
+    IBMCLOUD_AUTHTYPE=iam
+    IBMCLOUD_APIKEY=${ADMIN_IBMCLOUD_API_KEY}
+  ibmcloud_api_key: ${ADMIN_IBMCLOUD_API_KEY}
+type: Opaque
+EOL
+
+cat <<EOL > ${CLUSTER_DIR}/manifests/openshift-ingress-operator-cloud-credentials-credentials.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+ creationTimestamp: null
+ name: cloud-credentials
+ namespace: openshift-ingress-operator
+stringData:
+ ibm-credentials.env: |-
+  IBMCLOUD_AUTHTYPE=iam
+  IBMCLOUD_APIKEY=${INGRESS_OPERATOR_API_KEY}
+ ibmcloud_api_key: ${INGRESS_OPERATOR_API_KEY}
+type: Opaque
+EOL
+
+# Create cluster
+title_card "Create cluster" "With everything in place, run the following:\n\nopenshift-install create cluster --dir \${CLUSTER_DIR}\n\nThis will begin deployment."
+TF_LOG=debug openshift-install create cluster --dir ${CLUSTER_DIR} --log-level=debug
