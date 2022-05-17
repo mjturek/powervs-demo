@@ -46,7 +46,7 @@ function show_file {
 }
 
 # Create IBM Cloud resources
-title_card "Create IBM Cloud resources" "A precreated DNS domain in IBM Cloud CIS, and a pre created Power VS Service\ninstance are required. Take note of the DNS domain name and service instance's ID."
+title_card "Create IBM Cloud resources" "A pre-created DNS domain in IBM Cloud CIS, and a pre-created Power VS Service\ninstance are required. Take note of the DNS domain name and service instance's ID."
 
 # Prepare environment
 title_card "Prepare environment" "In this demo, we will be using several environment variables\nThey will be used to create an install config and cloud credentials"
@@ -64,6 +64,7 @@ mkdir ${CLUSTER_DIR}
 cat <<EOL > ${CLUSTER_DIR}/install-config.yaml
 apiVersion: v1
 baseDomain: scnl-ibm.com
+credentialsMode: Manual
 compute:
 - architecture: ppc64le
   hyperthreading: Enabled
@@ -101,9 +102,13 @@ pullSecret: '${PULL_SECRET}'
 sshKey: '${SSH_PUBLIC_KEY}'
 EOL
 
+# Create ignition configs
+title_card "Create ignition configs" "Generate the Ignition config files that are used by the cluster\nto launch machines:\n\n\`openshift-install create ignition-configs --dir \${CLUSTER_DIR}"
+openshift-install create ignition-configs --dir ${CLUSTER_DIR}
+
 # Create manifests
 title_card "Create manifests" "Manifests can be generated with the following command:\n\n\`openshift-install create manifests --dir \${CLUSTER_DIR}\`\n\nCLUSTER_DIR should be the same location as your install-config"
-openshift-install create manifests --dir ${CLUSTER_DIR} --log-level=debug
+openshift-install create manifests --dir ${CLUSTER_DIR}
 
 # Fetch cloud credentials
 title_card "Fetch cloud credentials" "Cloud credentials are manifests for secrets used by various operators in\nthe installer process. These can be extracted using ccoctl:\n\n\`ccoctl ibmcloud create-service-id \\ \n--credentials-requests-dir <path-to-directory-with-list-of-credentials-requests> \\ \n--name <name> --resource-group-name <resource-group-name>\`\n\nAfter fetching them, place them in your manifests directory. Here is an example of what they look like."
